@@ -1,0 +1,421 @@
+---
+title: "DDA_DataTest"
+author: 'Azadeh, Ayse & Keyur'
+date: "2023-03-18"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+Install and load required libraries
+```{r}
+#install.packages("ggplot2")
+#install.packages("validate")
+#install.packages("tidyverse")
+
+#install.packages("dlookr")
+
+library(dlookr)
+
+library(tidyverse)
+library(ggplot2)
+library(validate)
+library(dlookr)
+```
+# Importing the dataset into R
+```{r}
+twitter_data <- read.csv('TwitterData.csv')
+```
+
+
+# 1) Data quality checking and cleaning
+
+## 1.1 Data quality analysis
+ 
+Step 1) Installing or Loading required libraries, such as ggplot2.
+Step 2) Eyeball the data by summary, str and table functions to determine each variable and column in the data set.
+Step 3) Exploring and checking the data more systematically using the validator() function to check for any possible problems in values.
+Step 4) Checking the result of validator() function numerically and graphically.
+Step 5) Reporting the issues about data quality.
+
+###Installing or Loading required libraries.
+
+Required packages such as validate and ggplot2 have been added at the top of the code.
+
+### Eyeball the data by summary, str and table functions.
+
+```{r}
+summary(twitter_data)
+str(twitter_data)
+```
+
+### Exploring and checking the data more systematically.
+
+```{r}
+twitter_data.rules <-  validator(
+                         Str.Profile = is.factor(default_profile),
+                         Str.Profile.image = is.factor(default_profile_image),
+                         Str.geo_enabled = is.factor(geo_enabled),
+                         Str.lang = is.factor(lang),
+                         Str.location = is.factor(location),
+                         Str.verified = is.factor(verified),
+                         Str.account_type = is.factor(account_type),
+                         
+
+                         NonNeg.Favourites_count  =  favourites_count >= 0,
+                         NonNeg.followers_count  =  followers_count >= 0,
+                         NonNeg.friends_count  =  friends_count >=0,
+                         NonNeg.statuses_count =  statuses_count >=0,
+                         NonNeg.average_tweets_per_day =  average_tweets_per_day >=0, 
+                         NonNeg.account_age_days =  account_age_days >=0
+                         
+                         )
+```
+
+
+### Checking the result of validator Numerically and Graphically.
+```{r}
+twitter_data.check <- confront(twitter_data, twitter_data.rules)
+summary(twitter_data.check)
+```
+
+
+```{r}
+barplot(twitter_data.check, xlab = "")
+
+```
+• As the x is the row numbers and does not have any useful information so we have decided to delete it.
+• For created_at we had the account_age_days that gives us the same information so we do not need to keep it.
+• Id is an identifier for account and it does not have any value to the data set so we have deleted it.
+• The reason that we deleted the profile_image_url is that as it is a url of the profile images and we can not get any useful information based on that.
+• Also, we have five categorical some variables that have been read in R incorrectly so this issue can be fix in R using as.factor() function.
+* Additionally, as is evident from the data, there are several columns, including 'lang', 'description', 'profile_background_image_url', and 'screen_name', from which we can extract new columns that may prove useful for our analysis.
+
+### Checking the Outliers
+
+```{r}
+str(twitter_data)
+dlookr::diagnose_outlier(twitter_data)
+```
+Even though some variables of our dataset contain outliers, we consider them as valid data points that provide critical insights into the distinguishing characteristics of the bot and human accounts, and retaining them in our analysis can lead to a more accurate identification of these features and the development of a more reliable prediction model.
+
+## 1.2 Data Cleaning
+
+
+### Creating new columns based on 'lang', 'description', 'profile_background_image_url', and 'screen_name'
+```{r}
+twitter_data$has_description <- ifelse(is.na(twitter_data$description) | twitter_data$description == "", FALSE, TRUE)
+twitter_data$has_lang <- ifelse(is.na(twitter_data$lang) | twitter_data$lang == "", FALSE, TRUE)
+twitter_data$has_background_image_url <- ifelse(is.na(twitter_data$profile_background_image_url) | twitter_data$profile_background_image_url == "", FALSE, TRUE)
+
+twitter_data$user_name_length <- nchar(twitter_data$screen_name)
+
+```
+
+
+### Deleting variable
+In this part we removed variables that do not give us important information and also we delete the primary columns that we created new columns based on them.
+```{r}
+data_clean <- subset(twitter_data, select = -c(X,created_at, id,profile_image_url,created_at, location, lang, description, profile_background_image_url,screen_name))
+
+```
+
+```{r}
+summary(data_clean)
+
+```
+
+
+### Fixing the categorical variables format
+```{r}
+data_clean$default_profile <- as.factor(data_clean$default_profile)
+data_clean$default_profile_image <- as.factor(data_clean$default_profile_image)
+data_clean$geo_enabled <- as.factor(data_clean$geo_enabled)
+data_clean$verified <- as.factor(data_clean$verified)
+data_clean$account_type <- as.factor(data_clean$account_type )
+data_clean$has_description <- as.factor(data_clean$has_description )
+data_clean$has_lang <- as.factor(data_clean$has_lang )
+data_clean$has_background_image_url <- as.factor(data_clean$has_background_image_url )
+
+```
+
+### Changing the name of columns to make more sense
+```{r}
+names(data_clean)[5] <- "following_count" 
+names(data_clean)[3] <- "tweets_like_by_user" 
+names(data_clean)[7] <- "tweets_count"
+
+summary(data_clean)
+```
+
+
+### Checking missing values
+
+```{r}
+sum(data_clean == "" | data_clean== " " | is.na(data_clean))
+
+```
+
+
+### Checking the data quality after cleaning
+```{r}
+summary(data_clean)
+str(data_clean)
+```
+As we can see form the result of the summary, 
+
+
+
+# 2) EDA :Numerical and Graphical Explanatory data analysis
+
+## 2.1 EDA Plan
+Exploring, describing and visualizing the data is an essential step in data  analysis process, as it helps to get a better understanding of data and identify any patterns or trends that may be present. 
+The approach to explore each variable depends on their type. So, we use different approaches to explore our categorical and numerical variables.
+Step 1) Load the data into R.
+Step2) Get a numerical summary of the variables to explore the essential characteristics of the data using summary() and table() functions.
+In addition, we can use functions such as str(), head(), and tail() to get a sense of the structure and content of the data.
+Step 3) Graphically summary of the variables.
+Examine the data for patterns or trends, and keep an eye out for outliers or oddities.
+The histogram, which depicts the frequency and distribution of values in the data, can be used to provide a graphical summary of numerical variables.
+A bar plot or box plot can also be used to provide a graphical overview of categorical variables.
+Step 4) Discovering the correlation and relationships between pairs of variables using functions such as cor().
+Step 5) Visualizing the relationship between variables. Using scatter plot, plot or box plot.
+Step 6) Summarizing the findings.
+
+## 2.2 Numerical summary of the variables
+Step 1) this step is already done.
+
+
+### Getting the numerical summary of the data
+
+```{r}
+glimpse(data_clean)
+```
+
+### Eyeball the first and last six of the data
+```{r}
+# Getting the first six rows of the data
+head(data_clean)
+# Getting the last six rows of the data
+tail(data_clean)
+```
+
+
+### Checking the categorical variables using table() function
+
+```{r}
+summary(data_clean)
+table(data_clean$default_profile)
+table(data_clean$default_profile_image)
+table(data_clean$geo_enabled)
+table(data_clean$has_lang)
+table(data_clean$verified)
+table(data_clean$account_type)
+table(data_clean$has_description)
+table(data_clean$has_background_image_url)
+
+
+```
+
+
+## 2.3 Graphical summary of the variables
+
+### Checking the frequency of variables
+
+To justify the Research question first we need to check if we have sufficient amount of data for both Humans and Bots.
+
+```{r}
+ggplot(data_clean,aes(account_type))+geom_bar(col='darkgrey', fill='grey')
+```
+
+
+
+
+### Using the histogram for the continuous variables
+```{r}
+ggplot(data_clean, aes(x=tweets_like_by_user)) + geom_histogram(bins = 10, color="darkgrey", fill="grey") + theme_classic() + ggtitle("Histogram of the tweets_like_by_user variable")
+
+ggplot(data_clean, aes(x=followers_count)) + geom_histogram(bins = 10, color="darkgrey", fill="grey") + theme_classic() + ggtitle("Histogram of the followers_count variable")
+
+ggplot(data_clean, aes(x=following_count)) + geom_histogram(bins = 10, color="darkgrey", fill="grey") + theme_classic() + ggtitle("Histogram of the following_count variable")
+
+ggplot(data_clean, aes(x=tweets_count)) + geom_histogram(bins = 10, color="darkgrey", fill="grey") + theme_classic() + ggtitle("Histogram of the tweets_count variable")
+
+ggplot(data_clean, aes(x=average_tweets_per_day)) + geom_histogram(bins = 10, color="darkgrey", fill="grey") + theme_classic() + ggtitle("Histogram of the average_tweets_per_day variable")
+
+ggplot(data_clean, aes(x=account_age_days)) + geom_histogram(bins = 10, color="darkgrey", fill="grey") + theme_classic() + ggtitle("Histogram of the account_age_days variable")
+
+ggplot(data_clean, aes(x=user_name_length)) + geom_histogram(bins = 10, color="darkgrey", fill="grey") + theme_classic() + ggtitle("Histogram of the user_name_length variable")
+
+
+```
+From above histograms we can see that account_age_days  and user_name_length variable is right skewed and for the rest of them as these are a lot of outliers they are skewed to the left. So, to check these variables in details we need to filter data.
+
+
+### Filtering the data to see the spread
+```{r}
+
+data_clean%>%
+  filter(tweets_like_by_user<10000)%>%
+  ggplot(aes(x=tweets_like_by_user,y=account_type))+geom_boxplot()+ theme_classic() + ggtitle("Boxplot of the tweets_like_by_user variable")
+
+data_clean%>%
+  filter(followers_count<2500)%>%
+  ggplot(aes(x=followers_count,y=account_type))+geom_boxplot()+ theme_classic() + ggtitle("Boxplot of the followers_count variable")
+
+data_clean%>%
+  filter(following_count<2500)%>%
+  ggplot(aes(x=following_count,y=account_type))+geom_boxplot()+ theme_classic() + ggtitle("Boxplot of the following_count variable")
+
+data_clean%>%
+  filter(tweets_count<10000)%>%
+  ggplot(aes(x=tweets_count,y=account_type))+geom_boxplot()+ theme_classic() + ggtitle("Boxplot of the tweets_count variable")
+
+data_clean%>%
+  filter(average_tweets_per_day<50)%>%
+  ggplot(aes(x=average_tweets_per_day,y=account_type))+geom_boxplot()+ theme_classic() + ggtitle("Boxplot of the average_tweets_per_day variable")
+
+data_clean%>%
+  ggplot(aes(x=account_age_days,y=account_type))+geom_boxplot()+ theme_classic() + ggtitle("Boxplot of the account_age_days variable")
+
+data_clean%>%
+  ggplot(aes(x=user_name_length,y=account_type))+geom_boxplot()+ theme_classic() + ggtitle("Boxplot of the ser_name_length variable")
+
+```
+We can see that the Spread is definitely different for Humans and Bots but we need to Statistically Validate if the difference is Significantly different.
+
+
+## 2.4 Examing the correlation and relationship between variables
+
+### Visually Checking the relation between Followers and following counts
+
+```{r}
+
+ggplot(data_clean,aes(x=followers_count,y=following_count,color=account_type))+geom_point()
+
+```
+We can see that the Humans tends to have higher followers count compared to following count but Bots tends to have higher following count but lower followers count. So we can say that these two columns can be a contributing variable for our model.
+
+
+### Checking the Significance of Difference
+
+Lets check the Significance of Difference for All numerical Columns one by one to the account type using t.test
+
+Hypothesis for first Test of tweets_like_by_user vs account_type:
+$H_0: \mu=0$ **The Means of tweets_like_by_user are same between the account types**
+$H_1:\mu \ne 0$ **The Means of tweets_like_by_user are different between the account types**
+
+If the p-value is less than 0.05 we would conclude that the difference in mean is statistically significant otherwise they are similar  
+
+```{r}
+names(data_clean)
+
+# T test for tweets_like_by_user
+t.test(tweets_like_by_user~account_type,data=data_clean)
+```
+
+As the p-value is less than 0.05 we can say that the difference in Means of followers_count are statistically significant
+
+Hypothesis for second Test of followers_count vs account_type:
+$H_0: \mu=0$ **The Means of followers_count are same between the account types**
+$H_1:\mu \ne 0$ **The Means of followers_count are different between the account types**
+
+If the p-value is less than 0.05 we would conclude that the difference in mean is statistically significant otherwise they are similar  
+
+```{r}
+# T test for followers_count
+t.test(followers_count~account_type,data=data_clean)
+```
+
+As the P value is less than 0.05 we can say that the difference in Means of followers_count are statistically significant
+
+Creating Hypothesis for third Test of following_count vs account_type:
+$H_0: \mu=0$ **The Means of following_count are same between the account types**
+$H_1:\mu \ne 0$ **The Means of following_count are different between the account types**
+
+If the p-value is less than 0.05 we would conclude that the difference in mean is statistically significant otherwise they are similar  
+
+```{r}
+# T test for following_count
+t.test(following_count~account_type,data=data_clean)
+```
+
+As the p-value is greater than 0.05 we can say that the difference in Means of following_count are not statistically significant and we do not have much evidence to reject the null hypothesis.
+
+Hypothesis for fourth Test of tweets_count vs account_type:
+$H_0: \mu=0$ **The Means of tweets_count are same between the account types**
+$H_1:\mu \ne 0$ **The Means of tweets_count are different between the account types**
+
+If the p-value is less than 0.05 we would conclude that the difference in mean is statistically significant otherwise they are similar  
+
+```{r}
+# T test for tweets_count
+t.test(tweets_count~account_type,data=data_clean)
+```
+
+As the p-value is greater than 0.05 we can say that the difference in Means of tweets_count are not statistically significant and we do not have much evidence to reject the null hypothesis.
+
+
+Creating Hypothesis for fifth Test of average_tweets_per_day vs account_type:
+$H_0: \mu=0$ **The Means of average_tweets_per_day are same between the account types**
+$H_1:\mu \ne 0$ **The Means of average_tweets_per_day are different between the account types**
+
+If the p-value is less than 0.05 we would conclude that the difference in mean is statistically significant otherwise they are similar  
+
+```{r}
+# T test for average_tweets_per_day
+t.test(average_tweets_per_day~account_type,data=data_clean)
+```
+
+As the P value is greater than 0.05 we can say that the difference in Means of average_tweets_per_day are not statistically significant and we do not have much evidence to reject the null hypothesis.
+
+Creating Hypothesis for sixth Test of account_age_days vs account_type:
+$H_0: \mu=0$ **The Means of account_age_days are same between the account types**
+$H_1:\mu \ne 0$ **The Means of account_age_days are different between the account types**
+
+If the p-value is less than 0.05 we would conclude that the difference in mean is statistically significant otherwise they are similar  
+
+```{r}
+# T test for account_age_days
+t.test(account_age_days~account_type,data=data_clean)
+```
+
+As the P value is less than 0.05 we can say that the difference in Means of account_age_days are statistically significant
+
+
+Hypothesis for seventh Test of user_name_length vs account_type:
+$H_0: \mu=0$ **The Means of user_name_length are same between the account types**
+$H_1:\mu \ne 0$ **The Means of user_name_length are different between the account types**
+
+If the p-value is less than 0.05 we would conclude that the difference in mean is statistically significant otherwise they are similar  
+
+```{r}
+# T test for account_age_days
+t.test(user_name_length~account_type,data=data_clean)
+```
+
+As the p-value is not less than 0.05 we can say that the difference in Means of user_name_length are not statistically significant.
+
+
+According to the result of the t-test we will delete variables that their mean is not significant
+
+```{r}
+
+data_final <- subset(data_clean, select = -c(following_count, tweets_count, average_tweets_per_day, user_name_length))
+
+summary(data_final)
+```
+
+
+### Saving the final data set
+```{r}
+summary(data_final)
+# saving the final data set
+write.csv(data_final, "TwitterData_Prepared.csv", row.names = FALSE)
+
+```
+
