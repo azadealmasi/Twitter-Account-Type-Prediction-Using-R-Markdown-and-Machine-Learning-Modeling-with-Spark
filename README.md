@@ -1,0 +1,2 @@
+# Twitter-Account-Type-Prediction-Using-R-Markdown-and-Machine-Learning-Modeling-with-Spark
+In this project, our goal is to create a robust predictive model capable of classifying Twitter accounts based on their types. By harnessing the capabilities of R Markdown for data preprocessing and Spark for machine learning modelling, we can achieve accurate predictions regarding whether a Twitter account belongs to an individual, or a bot,
